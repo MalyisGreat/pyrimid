@@ -410,6 +410,17 @@ async function inspectMcpTarget(normalizedUrl: string) {
   const evidenceUrls: string[] = [];
   const errors: string[] = [];
   const base = new URL(normalizedUrl);
+  const unsafeProbe = unsafeProbeReason(base);
+  if (unsafeProbe) {
+    return {
+      inspected_as: 'url',
+      detected_features: Array.from(detected),
+      missing_features: Array.from(missing),
+      evidence_urls: evidenceUrls,
+      errors: [unsafeProbe],
+    };
+  }
+
   const probes = [
     { feature: 'mcp_manifest', url: new URL('/.well-known/mcp.json', base).toString() },
     { feature: 'llms_txt', url: new URL('/llms.txt', base).toString() },
@@ -538,6 +549,56 @@ function safeHost(input: string) {
   } catch {
     return 'example.com';
   }
+}
+
+function unsafeProbeReason(url: URL) {
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    return `network probes skipped for unsupported protocol: ${url.protocol}`;
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (
+    hostname === 'localhost' ||
+    hostname === 'metadata.google.internal' ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.internal')
+  ) {
+    return 'network probes skipped for local or internal hostname';
+  }
+
+  if (isPrivateIp(hostname)) {
+    return 'network probes skipped for private, loopback, or link-local IP';
+  }
+
+  return null;
+}
+
+function isPrivateIp(hostname: string) {
+  const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const parts = ipv4.slice(1).map(Number);
+    if (parts.some((part) => part > 255)) return true;
+    const [first, second] = parts;
+    return (
+      first === 0 ||
+      first === 10 ||
+      first === 127 ||
+      first === 169 && second === 254 ||
+      first === 172 && second >= 16 && second <= 31 ||
+      first === 192 && second === 168
+    );
+  }
+
+  return (
+    hostname === '::1' ||
+    hostname === '::' ||
+    hostname.startsWith('fc') ||
+    hostname.startsWith('fd') ||
+    hostname.startsWith('fe80:') ||
+    hostname.startsWith('::ffff:127.') ||
+    hostname.startsWith('::ffff:10.') ||
+    hostname.startsWith('::ffff:192.168.')
+  );
 }
 
 function inferMcpServerKind(input: string) {
