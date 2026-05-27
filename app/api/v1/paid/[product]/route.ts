@@ -81,7 +81,11 @@ async function payload(productId: string, req: NextRequest, proof: string) {
             target: 'Hosted MCP servers with metered data tools',
             fit_score: 94,
             reason: 'They already expose machine-readable tools, so adding a paid HTTP 402 gate does not change the agent workflow.',
-            discovery_queries: ['site:smithery.ai "pricing"', 'site:mcpmarket.com "API"', '"mcp server" "data enrichment"'],
+            discovery_queries: [
+              'topic:mcp-server pricing archived:false',
+              'topic:mcp-server data enrichment archived:false',
+              'topic:mcp-server paid tools archived:false',
+            ],
             suggested_paid_tool: 'premium_search',
             price_usdc: '0.05-0.25',
             affiliate_bps: 2500,
@@ -91,7 +95,11 @@ async function payload(productId: string, req: NextRequest, proof: string) {
             target: 'MCP wrappers around paid SaaS APIs',
             fit_score: 89,
             reason: 'The vendor has direct marginal API cost and a clear buyer value story for per-call pricing.',
-            discovery_queries: ['"MCP" "API key" "enrich"', '"MCP server" "search API"', '"MCP" "credits"'],
+            discovery_queries: [
+              'topic:mcp-server api key archived:false',
+              'topic:mcp-server enrichment archived:false',
+              'topic:mcp-server search api archived:false',
+            ],
             suggested_paid_tool: 'enrich_company',
             price_usdc: '0.10-0.50',
             affiliate_bps: 2000,
@@ -101,7 +109,11 @@ async function payload(productId: string, req: NextRequest, proof: string) {
             target: 'Open-source MCP tools with hosted demos',
             fit_score: 82,
             reason: 'They can keep the local tool free while selling hosted execution, queue priority, or fresh data.',
-            discovery_queries: ['"mcp" "hosted" "demo"', '"mcp server" "deploy"', '"MCP" "cloud" "tool"'],
+            discovery_queries: [
+              'topic:mcp-server hosted archived:false',
+              'topic:mcp-server deploy cloud archived:false',
+              'topic:mcp-server cloud tool archived:false',
+            ],
             suggested_paid_tool: 'hosted_run',
             price_usdc: '0.02-0.15',
             affiliate_bps: 1500,
@@ -113,7 +125,11 @@ async function payload(productId: string, req: NextRequest, proof: string) {
             target: 'Agent frameworks with plugin or tool marketplaces',
             fit_score: 91,
             reason: 'A default commerce resolver lets every downstream agent recommend and buy tools without custom payment code.',
-            discovery_queries: ['"agent framework" "marketplace"', '"AI agent" "plugin marketplace"', '"tool registry" "agent"'],
+            discovery_queries: [
+              'topic:ai-agents marketplace framework archived:false',
+              'topic:ai-agent plugin marketplace archived:false',
+              'tool registry agent framework in:name,description archived:false',
+            ],
             suggested_paid_tool: 'catalog_recommendation',
             price_usdc: '0.01-0.10',
             affiliate_bps: 3000,
@@ -123,7 +139,11 @@ async function payload(productId: string, req: NextRequest, proof: string) {
             target: 'Vertical agents with recurring user questions',
             fit_score: 84,
             reason: 'Agents that repeatedly call data or research tools can route buyers into paid calls at the moment of intent.',
-            discovery_queries: ['"AI agent" "research API"', '"agent" "lead generation"', '"agent" "market data"'],
+            discovery_queries: [
+              'topic:ai-agent research api archived:false',
+              'topic:ai-agent lead generation api archived:false',
+              'topic:ai-agent market data api archived:false',
+            ],
             suggested_paid_tool: 'paid_recommendation',
             price_usdc: '0.05-0.25',
             affiliate_bps: 3500,
@@ -135,7 +155,11 @@ async function payload(productId: string, req: NextRequest, proof: string) {
             target: 'AI data APIs with free demos and paid plans',
             fit_score: 93,
             reason: 'They already sell per-seat or credit-based access; x402 adds one-off agent purchases.',
-            discovery_queries: ['"AI API" "free tier" "pricing"', '"data API" "credits"', '"enrichment API" "pricing"'],
+            discovery_queries: [
+              'ai api pricing free tier in:name,description archived:false',
+              'data api credits pricing in:name,description archived:false',
+              'enrichment api pricing in:name,description archived:false',
+            ],
             suggested_paid_tool: 'single_lookup',
             price_usdc: '0.05-1.00',
             affiliate_bps: 2000,
@@ -145,7 +169,11 @@ async function payload(productId: string, req: NextRequest, proof: string) {
             target: 'Scraping and enrichment services',
             fit_score: 87,
             reason: 'Their compute and proxy costs map naturally to per-call USDC pricing and clear output schemas.',
-            discovery_queries: ['"web scraping API" "per request"', '"lead enrichment" "API"', '"SERP API" "pricing"'],
+            discovery_queries: [
+              'web scraping api pricing in:name,description archived:false',
+              'lead enrichment api pricing in:name,description archived:false',
+              'serp api pricing in:name,description archived:false',
+            ],
             suggested_paid_tool: 'fresh_record',
             price_usdc: '0.02-0.40',
             affiliate_bps: 1500,
@@ -206,28 +234,60 @@ async function payload(productId: string, req: NextRequest, proof: string) {
               route: '/api/paid/search',
               price_usdc: '0.03-0.10',
               value: 'Fresh indexed search or higher result limits.',
-              output_schema: { results: 'array', citations: 'array', freshness: 'string' },
+              output_schema: {
+                type: 'object',
+                properties: {
+                  results: { type: 'array', items: { type: 'object' } },
+                  citations: { type: 'array', items: { type: 'string' } },
+                  freshness: { type: 'string' },
+                },
+                required: ['results', 'citations', 'freshness'],
+              },
             },
             {
               name: 'enrich',
               route: '/api/paid/enrich',
               price_usdc: '0.10-0.50',
               value: 'Expensive third-party API calls, enrichment, or entity matching.',
-              output_schema: { entity: 'object', confidence: 'number', sources: 'array' },
+              output_schema: {
+                type: 'object',
+                properties: {
+                  entity: { type: 'object' },
+                  confidence: { type: 'number' },
+                  sources: { type: 'array', items: { type: 'string' } },
+                },
+                required: ['entity', 'confidence', 'sources'],
+              },
             },
             {
               name: 'export',
               route: '/api/paid/export',
               price_usdc: '0.05-0.25',
               value: 'Structured file generation, bulk export, or normalized JSON download.',
-              output_schema: { download_url: 'string', row_count: 'number', expires_at: 'string' },
+              output_schema: {
+                type: 'object',
+                properties: {
+                  download_url: { type: 'string' },
+                  row_count: { type: 'number' },
+                  expires_at: { type: 'string' },
+                },
+                required: ['download_url', 'row_count', 'expires_at'],
+              },
             },
             {
               name: 'analyze',
               route: '/api/paid/analyze',
               price_usdc: '0.15-1.00',
               value: 'LLM, crawling, browser, or compute-heavy analysis that should not be free.',
-              output_schema: { summary: 'string', recommendations: 'array', risk_notes: 'array' },
+              output_schema: {
+                type: 'object',
+                properties: {
+                  summary: { type: 'string' },
+                  recommendations: { type: 'array', items: { type: 'string' } },
+                  risk_notes: { type: 'array', items: { type: 'string' } },
+                },
+                required: ['summary', 'recommendations', 'risk_notes'],
+              },
             },
           ],
           pricing: {
@@ -320,7 +380,8 @@ async function discoverVendorLeads(leadProfiles: LeadProfile[], query: Record<st
 
   for (const { search, profile } of queryPlan) {
     try {
-      const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(`${search} archived:false`)}&sort=updated&order=desc&per_page=5`;
+      const searchQuery = search.includes('archived:') ? search : `${search} archived:false`;
+      const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(searchQuery)}&sort=updated&order=desc&per_page=5`;
       const response = await fetchWithTimeout(url, { headers: githubHeaders(), cache: 'no-store' });
       if (!response.ok) {
         errors.push({ query: search, status: response.status, message: `GitHub search failed with HTTP ${response.status}` });
@@ -383,10 +444,19 @@ function candidateFromRepository(item: GitHubRepositoryItem, profile: LeadProfil
 
 function scoreRepositoryLead(baseScore: number, evidenceText: string, stars: number) {
   let score = baseScore;
+  const coreSignals = [
+    evidenceText.includes('mcp'),
+    evidenceText.includes('x402') || evidenceText.includes('payment'),
+    evidenceText.includes('api') || evidenceText.includes('tool'),
+    evidenceText.includes('pricing') || evidenceText.includes('paid'),
+    evidenceText.includes('agent'),
+  ].filter(Boolean).length;
   if (evidenceText.includes('mcp')) score += 5;
   if (evidenceText.includes('x402') || evidenceText.includes('payment')) score += 4;
   if (evidenceText.includes('api') || evidenceText.includes('tool')) score += 3;
   if (evidenceText.includes('pricing') || evidenceText.includes('paid')) score += 3;
+  if (coreSignals === 0) score -= 20;
+  if (coreSignals === 1 && stars < 5) score -= 10;
   if (stars > 500) score += 4;
   else if (stars > 100) score += 2;
   else if (stars < 5) score -= 6;
@@ -538,12 +608,25 @@ async function inspectGitHubRepo(owner: string, repo: string) {
 }
 
 function normalizeUrl(input: string) {
+  const trimmed = input.trim();
+  if (!trimmed) return 'https://example.com/mcp';
+
   try {
-    const url = new URL(input);
+    const url = new URL(trimmed);
     url.hash = '';
     return url.toString().replace(/\/$/, '');
   } catch {
-    return 'https://example.com/mcp';
+    const repoLike = trimmed.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
+    if (repoLike) return `https://github.com/${repoLike[1]}/${repoLike[2].replace(/\.git$/, '')}`;
+
+    try {
+      const withProtocol = trimmed.includes('://') ? trimmed : `https://${trimmed}`;
+      const url = new URL(withProtocol);
+      url.hash = '';
+      return url.toString().replace(/\/$/, '');
+    } catch {
+      return 'https://example.com/mcp';
+    }
   }
 }
 
