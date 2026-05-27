@@ -303,6 +303,10 @@ function githubHeaders() {
   return headers;
 }
 
+function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 3000) {
+  return fetch(url, { ...init, signal: init.signal || AbortSignal.timeout(timeoutMs) });
+}
+
 async function discoverVendorLeads(leadProfiles: LeadProfile[], query: Record<string, string>) {
   const requestedLimit = Number.parseInt(query.limit || '6', 10);
   const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 10) : 6;
@@ -317,7 +321,7 @@ async function discoverVendorLeads(leadProfiles: LeadProfile[], query: Record<st
   for (const { search, profile } of queryPlan) {
     try {
       const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(`${search} archived:false`)}&sort=updated&order=desc&per_page=5`;
-      const response = await fetch(url, { headers: githubHeaders(), cache: 'no-store' });
+      const response = await fetchWithTimeout(url, { headers: githubHeaders(), cache: 'no-store' });
       if (!response.ok) {
         errors.push({ query: search, status: response.status, message: `GitHub search failed with HTTP ${response.status}` });
         continue;
@@ -429,7 +433,7 @@ async function inspectMcpTarget(normalizedUrl: string) {
 
   for (const probe of probes) {
     try {
-      const response = await fetch(probe.url, { method: 'GET', cache: 'no-store' });
+      const response = await fetchWithTimeout(probe.url, { method: 'GET', cache: 'no-store' }, 2000);
       if (response.ok) {
         detected.add(probe.feature);
         missing.delete(probe.feature);
@@ -469,7 +473,7 @@ async function inspectGitHubRepo(owner: string, repo: string) {
   let metadata: Record<string, unknown> = {};
 
   try {
-    const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers: githubHeaders(), cache: 'no-store' });
+    const repoResponse = await fetchWithTimeout(`https://api.github.com/repos/${owner}/${repo}`, { headers: githubHeaders(), cache: 'no-store' });
     if (repoResponse.ok) {
       const data = await repoResponse.json() as GitHubRepositoryItem;
       metadata = {
@@ -492,7 +496,7 @@ async function inspectGitHubRepo(owner: string, repo: string) {
 
   const contentsUrl = `https://api.github.com/repos/${owner}/${repo}/contents`;
   try {
-    const contentsResponse = await fetch(contentsUrl, { headers: githubHeaders(), cache: 'no-store' });
+    const contentsResponse = await fetchWithTimeout(contentsUrl, { headers: githubHeaders(), cache: 'no-store' });
     if (contentsResponse.ok) {
       const contents = await contentsResponse.json() as Array<{ name?: string; html_url?: string }>;
       for (const item of contents) {
